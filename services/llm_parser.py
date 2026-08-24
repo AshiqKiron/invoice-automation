@@ -1,7 +1,6 @@
 import json
-import os
 import requests
-from config import LLM_PROVIDER, GROQ_API_KEY, OLLAMA_URL, OLLAMA_MODEL
+from config import LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL, OLLAMA_URL, OLLAMA_MODEL
 
 SYSTEM_PROMPT = """\
 You are an expert AI assistant for Japanese invoice processing.
@@ -62,7 +61,7 @@ class LLMParser:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "llama-3.3-70b-versatile",
+            "model": GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
@@ -76,7 +75,6 @@ class LLMParser:
             timeout=30,
         )
         if resp.status_code != 200:
-            # Print the actual error body from Groq for debugging
             raise Exception(
                 f"Groq API returned {resp.status_code}: {resp.text}"
             )
