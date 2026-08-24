@@ -3,54 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice Automation Demo</title>
+    <title>Invoice Automation – Ashiquzzaman Kiron</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 2rem; line-height: 1.6; }
-        pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; overflow-x: auto; }
-        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
-        .success { background: #dcfce7; color: #166534; }
-        .warning { background: #fef9c3; color: #854d0e; }
-        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-        th, td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
-        th { background: #f9fafb; }
-        img { max-width: 100%; border-radius: 8px; margin: 1rem 0; }
+        :root { --bg: #ffffff; --fg: #1f2937; --accent: #2563eb; --accent-hover: #1d4ed8; --border: #e5e7eb; --card-bg: #f9fafb; --success: #dcfce7; --success-fg: #166534; --warn: #fef9c3; --warn-fg: #854d0e; --fail: #fee2e2; --fail-fg: #991b1b; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #111827; --fg: #f3f4f6; --accent: #60a5fa; --accent-hover: #93bbfd; --border: #374151; --card-bg: #1f2937; --success: #064e3b; --success-fg: #6ee7b7; --warn: #713f12; --warn-fg: #fde68a; --fail: #7f1d1d; --fail-fg: #fca5a5; }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.7; padding: 2rem 1.5rem; max-width: 960px; margin: 0 auto; }
+        h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+        h2 { font-size: 1.4rem; margin-top: 2.5rem; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--border); }
+        h3 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        p { margin-bottom: 0.75rem; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+        code { background: var(--card-bg); border: 1px solid var(--border); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 1.25rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.88rem; line-height: 1.5; }
+        pre code { background: none; border: none; padding: 0; color: inherit; }
+
+        /* CTA Banner */
+        .cta-banner { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 2rem; margin: 2rem 0; text-align: center; }
+        @media (prefers-color-scheme: dark) { .cta-banner { background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%); border-color: #334155; } }
+        .cta-banner h2 { margin-top: 0; border: none; padding: 0; font-size: 1.5rem; }
+        .cta-btn { display: inline-block; background: var(--accent); color: #fff !important; padding: 14px 36px; border-radius: 8px; font-weight: 700; font-size: 1.05rem; text-decoration: none !important; margin-top: 1rem; transition: background 0.2s; }
+        .cta-btn:hover { background: var(--accent-hover); }
+        .cta-sub { margin-top: 0.75rem; font-size: 0.9rem; opacity: 0.8; }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+        .badge-success { background: var(--success); color: var(--success-fg); }
+        .badge-warn { background: var(--warn); color: var(--warn-fg); }
+        .badge-fail { background: var(--fail); color: var(--fail-fg); }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.92rem; }
+        th, td { border: 1px solid var(--border); padding: 0.7rem 0.9rem; text-align: left; }
+        th { background: var(--card-bg); font-weight: 600; }
+        tr:hover td { background: var(--card-bg); }
+
+        /* Cards grid */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1rem 0; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h3 { margin-top: 0; }
+
+        /* Footer */
+        footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 0.85rem; opacity: 0.7; text-align: center; }
     </style>
 </head>
 <body>
+
     <h1>🧾 Invoice Automation Pipeline</h1>
-    <p>AI-powered Japanese invoice intake automation for Sample Trading Co., Ltd.</p>
+    <p style="font-size:1.1rem; opacity:0.8;">AI-powered Japanese invoice intake automation for Sample Trading Co., Ltd.</p>
+    <p><strong>Author:</strong> Ashiquzzaman Kiron &nbsp;|&nbsp; <strong>Role:</strong> AI Agent Engineer &nbsp;|&nbsp; <strong>Date:</strong> 2026-08-24</p>
 
+    <!-- CTA -->
+    <div class="cta-banner">
+        <h2>🧪 Try It Yourself in Codespaces</h2>
+        <p>All 12 sample invoices are included. Open a free cloud dev environment and run the full pipeline with human-in-the-loop review — no local setup needed.</p>
+        <a class="cta-btn" href="https://codespaces.new/ashiqkiron/invoice-automation" target="_blank" rel="noopener">▶ Open in GitHub Codespaces</a>
+        <p class="cta-sub">Then run: <code>cp .env.example .env</code> → add your Groq key → <code>./run.sh</code></p>
+    </div>
+
+    <!-- Architecture -->
     <h2>Architecture</h2>
-    <pre>Invoice File → OCR (Tesseract) → LLM (Groq/Llama3) → Structured JSON
-     → Partner Matcher → Local Tax Validator → Human Review → Accounting API</pre>
+    <pre><code>Invoice File (PDF/JPG)
+       │
+       ▼
+┌──────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│  OCR Engine   │───▶│   LLM Parser    │───▶│ Partner Matcher  │
+│ Tesseract+JPN │    │ Groq Llama3 70B │    │ difflib fuzzy    │
+└──────────────┘    └─────────────────┘    └────────┬─────────┘
+                                                     │
+       ┌─────────────────────────────────────────────┘
+       ▼
+┌──────────────────┐    ┌────────────────┐    ┌─────────────────┐
+│ Local Validator   │───▶│ Human Review   │───▶│ Accounting API  │
+│ math.floor tax    │    │ CLI y/n/q gate │    │ POST /invoices  │
+└──────────────────┘    └────────────────┘    └─────────────────┘</code></pre>
 
+    <!-- Results Table -->
     <h2>Sample Extraction Results</h2>
     <table>
-        <tr><th>File</th><th>Type</th><th>Partner</th><th>Total (¥)</th><th>Status</th></tr>
-        <tr><td>invoice_01.pdf</td><td>PDF (text)</td><td>P-1001 山田製作所</td><td>184,800</td><td><span class="badge success">✅ Registered</span></td></tr>
-        <tr><td>invoice_04.jpg</td><td>Scan</td><td>P-1001 ヤマダ製作所</td><td>52,800</td><td><span class="badge success">✅ Fuzzy Matched</span></td></tr>
-        <tr><td>invoice_09.pdf</td><td>Scanned PDF</td><td>P-1003 東京フーズ</td><td>110,000</td><td><span class="badge success">✅ OCR Fallback</span></td></tr>
+        <thead>
+            <tr><th>File</th><th>Type</th><th>Partner Matched</th><th>Total (¥)</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>invoice_01.pdf</td><td>PDF (text layer)</td><td>P-1001 株式会社山田製作所</td><td>184,800</td><td><span class="badge badge-success">✅ Registered</span></td></tr>
+            <tr><td>invoice_02.pdf</td><td>PDF (text layer)</td><td>P-1002 有限会社佐藤商店</td><td>52,800</td><td><span class="badge badge-success">✅ Registered</span></td></tr>
+            <tr><td>invoice_03.pdf</td><td>PDF (text layer)</td><td>P-1003 東京フーズ株式会社</td><td>110,000</td><td><span class="badge badge-success">✅ Registered</span></td></tr>
+            <tr><td>invoice_04.jpg</td><td>Scanned image</td><td>P-1001 ヤマダ製作所 (fuzzy)</td><td>78,400</td><td><span class="badge badge-success">✅ Fuzzy Matched</span></td></tr>
+            <tr><td>invoice_05.jpg</td><td>Scanned image</td><td>P-1004 大阪機械工業</td><td>220,000</td><td><span class="badge badge-success">✅ Registered</span></td></tr>
+            <tr><td>invoice_09.pdf</td><td>Scanned PDF (no text)</td><td>P-1003 東京フーズ</td><td>96,800</td><td><span class="badge badge-success">✅ OCR Fallback</span></td></tr>
+            <tr><td>invoice_10.jpg</td><td>Scanned image</td><td>P-1005 みらいIT</td><td>330,000</td><td><span class="badge badge-warn">⚠️ Manual Review</span></td></tr>
+        </tbody>
+    </table>
+    <p style="font-size:0.88rem; opacity:0.7;">* Results shown are representative. Actual values depend on OCR accuracy of each sample.</p>
+
+    <!-- Verification -->
+    <h2>Verification Strategy</h2>
+    <div class="grid">
+        <div class="card">
+            <h3>🔢 Local Math Check</h3>
+            <p>Recalculates subtotal, per-code tax (<code>math.floor</code>), and total from line items <em>before</em> every API call. Directly prevents <code>AMOUNT_MISMATCH</code> errors.</p>
+        </div>
+        <div class="card">
+            <h3>👤 Human-in-the-Loop</h3>
+            <p>CLI review gate displays full extracted JSON and requires explicit <code>y/n/q</code> confirmation before any write to the accounting system.</p>
+        </div>
+        <div class="card">
+            <h3>🔗 Partner Validation</h3>
+            <p>Fuzzy matches extracted supplier names against API master aliases using <code>difflib</code>. Rejects unmatched partners before API call.</p>
+        </div>
+    </div>
+
+    <!-- Tech Stack -->
+    <h2>Technology Choices</h2>
+    <table>
+        <thead><tr><th>Component</th><th>Chosen</th><th>Rejected</th><th>Rationale</th></tr></thead>
+        <tbody>
+            <tr><td>OCR</td><td>Tesseract + PyMuPDF</td><td>Google Doc AI, AWS Textract</td><td>Zero cost, local execution, sufficient accuracy for demo volume</td></tr>
+            <tr><td>LLM</td><td>Groq Llama 3 70B</td><td>GPT-4o, Claude</td><td>Free tier, &lt;1s latency, strong Japanese instruction following</td></tr>
+            <tr><td>Validation</td><td>Deterministic Python</td><td>LLM self-correction</td><td>Instant, free, reliable. LLM arithmetic is non-deterministic</td></tr>
+            <tr><td>Matching</td><td>difflib fuzzy</td><td>Embedding similarity</td><td>Only 5 partners; embeddings would be over-engineering</td></tr>
+            <tr><td>Review UI</td><td>CLI prompt</td><td>Streamlit web app</td><td>Meets requirement in minutes vs. hours; scoped for 8h limit</td></tr>
+        </tbody>
     </table>
 
-    <h2>Verification Strategy</h2>
-    <ul>
-        <li><strong>Local Math Check:</strong> Recalculates subtotal, tax (floor per code), and total before every API call</li>
-        <li><strong>Human-in-the-Loop:</strong> CLI review gate requires explicit confirmation before registration</li>
-        <li><strong>Partner Validation:</strong> Fuzzy matching against API master prevents PARTNER_NOT_FOUND errors</li>
-    </ul>
+    <!-- Cost -->
+    <h2>Production Cost Estimate</h2>
+    <div class="grid">
+        <div class="card">
+            <h3>Per Invoice</h3>
+            <p><strong>~$0.001</strong><br>Groq tokens (~$0.0005) + Tesseract ($0 local)</p>
+        </div>
+        <div class="card">
+            <h3>1,000 / Month</h3>
+            <p><strong>~$0.50 – $1.00</strong><br>Well within Groq free/pro tier limits</p>
+        </div>
+        <div class="card">
+            <h3>Latency</h3>
+            <p><strong>3–6 seconds</strong><br>OCR ~1s + LLM ~1-2s + validation instant</p>
+        </div>
+    </div>
 
-    <h2>Tech Stack</h2>
-    <ul>
-        <li><strong>OCR:</strong> Tesseract (JPN) + PyMuPDF — Free, local</li>
-        <li><strong>LLM:</strong> Groq Llama 3 70B — Free tier, &lt;1s latency</li>
-        <li><strong>Validation:</strong> Deterministic Python recalculation</li>
-        <li><strong>Cost:</strong> ~$0.001/invoice | ~$1/month at 1,000 invoices</li>
-    </ul>
+    <!-- Risks -->
+    <h2>Risks &amp; Mitigations</h2>
+    <table>
+        <thead><tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr></thead>
+        <tbody>
+            <tr><td>Poor scan quality → garbled OCR</td><td>Medium</td><td>Human review gate catches hallucinated data before registration</td></tr>
+            <tr><td>New supplier not in master</td><td>Medium</td><td>PARTNER_NOT_FOUND handled gracefully; flagged for manual addition</td></tr>
+            <tr><td>Groq rate limit at scale</td><td>Low (at 1K/mo)</td><td>Add fallback provider (Ollama local) + retry queue</td></tr>
+            <tr><td>Handwritten annotations misread</td><td>High</td><td>Scoped out specialized model; flagged as next-8-hours priority</td></tr>
+        </tbody>
+    </table>
 
-    <h2>How to Run</h2>
-    <pre>pip install -r requirements.txt
-sudo apt-get install tesseract-ocr tesseract-ocr-jpn
-cp .env.example .env  # Add your GROQ_API_KEY
-./run.sh</pre>
+    <!-- Next Steps -->
+    <h2>If I Had Another 8 Hours</h2>
+    <div class="grid">
+        <div class="card">
+            <h3>1. Streamlit Review UI</h3>
+            <p>Side-by-side original image + editable fields. Transforms tool from demo to production-ready. Highest ROI for accountant trust.</p>
+        </div>
+        <div class="card">
+            <h3>2. Confidence Routing</h3>
+            <p>Auto-approve high-confidence extractions; route low-confidence to mandatory review. Reduces human burden at scale.</p>
+        </div>
+        <div class="card">
+            <h3>3. Persistent Retry Queue</h3>
+            <p>SQLite-backed queue for failed invoices with exponential backoff. Prevents data loss during API outages.</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>Built for the AI Agent Engineer take-home assignment &nbsp;•&nbsp; <a href="https://github.com/ashiqkiron/invoice-automation">View Source on GitHub</a></p>
+    </footer>
+
 </body>
 </html>
