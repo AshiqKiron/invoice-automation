@@ -45,13 +45,13 @@ BASE_DELAY = 5
 
 
 class RateLimitError(Exception):
-    def __init__(self, retry_after: float = 0):
+    def __init__(self, retry_after=0):
         self.retry_after = retry_after
         super().__init__(f"Rate limited. Retry after {retry_after}s")
 
 
 class LLMParser:
-    def parse_invoice(self, raw_text: str, partners_list: list) -> dict | None:
+    def parse_invoice(self, raw_text, partners_list):
         user_message = (
             f"Partners List:\n{json.dumps(partners_list, ensure_ascii=False)}\n\n"
             f"OCR Text:\n{raw_text}"
@@ -88,7 +88,7 @@ class LLMParser:
         print(f"   ❌ All {MAX_RETRIES} attempts failed.")
         return None
 
-    def _call_groq(self, user_message: str) -> str:
+    def _call_groq(self, user_message):
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json",
@@ -108,8 +108,92 @@ class LLMParser:
             json=payload,
             timeout=60,
         )
+
         if resp.status_code == 429:
-            retry_after = 0
-            if "retry-after" in resp.headers:
-                try:
-                    retry_after = float(resp.headers["retry
+            retry_after = self._extract_retry_after(resp)
+            raise RateLimitError(retry_after)
+
+        if resp.status_code == 400 and "reasoning" in resp.text.lower():
+            print("   ⚠️  Model does not support reasoning_effort, retrying without it...")
+            del payload["reasoning_effort"]
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60,
+            )
+            if resp.status_code == 429:
+                retry_after = self._extract_retry_after(resp)
+                raise RateLimitError(retry_after)
+            if resp.status_code != 200:
+                raise Exception(f"Groq API returned {resp.status_code}: {resp.text}")
+            return resp.json()["choices"][0]["message"]["content"]
+
+        if resp.status_code != 200:
+            raise Exception(f"Groq API returned {resp.status_code}: {resp.text}")
+
+        return resp.json()["choices"][0]["message"]["content"]
+
+    @staticmethod
+    def _extract_retry_after(resp):
+        retry_after = 0
+        if "retry-after" in resp.headers:
+            try:
+                retry_after = float(resp.headers["retry-after"])
+            except ValueError:
+                pass
+        if retry_after == 0:
+            try:
+                err = resp.json()
+                msg = err.get("error", {}).get("message", "")
+                match = re.search(r"try again in ([\d.]+)s", msg)
+                if match:
+                    retry_after = float(match.group(1)) + 1
+            except Exception:
+                pass
+        return retry_after
+
+    def _call_ollama(self, user_message):
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": f"{SYSTEM_PROMPT}\n\n{user_message}",
+            "stream": False,
+            "format": "json",
+        }
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=60)
+        resp.raise_for_status()
+        return resp.json()["response"]
+
+    @staticmethod
+    def _parse_json(content):
+        if not content or not content.strip():
+            return None
+
+        cleaned = content.strip()
+
+        # Strip <think>...</think> reasoning blocks (Qwen reasoning models)
+        cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
+
+        # Strip markdown code fences
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            lines = [line for line in lines if not line.strip().startswith("```")]
+            cleaned = "\n".join(lines).strip()
+
+        # Try direct parse first
+        try:
+            return json.loads(cleaned)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Try to extract JSON object from surrounding text
+        brace_start = cleaned.find("{")
+        brace_end = cleaned.rfind("}")
+        if brace_start != -1 and brace_end > brace_start:
+            extracted = cleaned[brace_start:brace_end + 1]
+            try:
+                return json.loads(extracted)
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        return None
