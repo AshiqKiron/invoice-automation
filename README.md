@@ -2,7 +2,7 @@
 
 
 
-
+````
 invoice-automation/
 ├── README.md                  # Setup instructions
 ├── SUBMISSION.md              # Your completed submission template
@@ -21,3 +21,4 @@ invoice-automation/
 │   └── validators.py          # Local math checks before sending to API
 ├── invoices/                  # Place the 12 sample files here
 └── output/                    # Logs and intermediate JSON results
+````
