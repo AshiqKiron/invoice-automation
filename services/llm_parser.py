@@ -7,7 +7,7 @@ from config import LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL, OLLAMA_URL, OLLAMA_MO
 SYSTEM_PROMPT = """\
 You are an expert AI assistant for Japanese invoice processing.
 Extract data from the OCR text and return ONLY a valid JSON object.
-Do NOT include any explanation, markdown, code fences, or extra text.
+Do NOT include any explanation, markdown, code fences, thinking, or extra text.
 Return ONLY raw JSON starting with { and ending with }.
 
 Rules:
@@ -68,8 +68,7 @@ class LLMParser:
                 if result is not None:
                     return result
 
-                # Debug: show what the LLM actually returned
-                preview = content[:500] if content else "(empty response)"
+                preview = content[:300] if content else "(empty response)"
                 print(f"   ⚠️  Attempt {attempt}/{MAX_RETRIES}: Invalid JSON.")
                 print(f"   📋 LLM returned: {preview}")
 
@@ -101,6 +100,7 @@ class LLMParser:
                 {"role": "user", "content": user_message},
             ],
             "temperature": 0,
+            "reasoning_effort": "none",
         }
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -112,63 +112,4 @@ class LLMParser:
             retry_after = 0
             if "retry-after" in resp.headers:
                 try:
-                    retry_after = float(resp.headers["retry-after"])
-                except ValueError:
-                    pass
-            if retry_after == 0:
-                try:
-                    err = resp.json()
-                    msg = err.get("error", {}).get("message", "")
-                    match = re.search(r"try again in ([\d.]+)s", msg)
-                    if match:
-                        retry_after = float(match.group(1)) + 1
-                except Exception:
-                    pass
-            raise RateLimitError(retry_after)
-
-        if resp.status_code != 200:
-            raise Exception(f"Groq API returned {resp.status_code}: {resp.text}")
-
-        return resp.json()["choices"][0]["message"]["content"]
-
-    def _call_ollama(self, user_message: str) -> str:
-        payload = {
-            "model": OLLAMA_MODEL,
-            "prompt": f"{SYSTEM_PROMPT}\n\n{user_message}",
-            "stream": False,
-            "format": "json",
-        }
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=60)
-        resp.raise_for_status()
-        return resp.json()["response"]
-
-    @staticmethod
-    def _parse_json(content: str) -> dict | None:
-        if not content or not content.strip():
-            return None
-
-        cleaned = content.strip()
-
-        # Strip markdown code fences
-        if cleaned.startswith("```"):
-            lines = cleaned.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            cleaned = "\n".join(lines).strip()
-
-        # Try direct parse first
-        try:
-            return json.loads(cleaned)
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        # Try to extract JSON object from surrounding text
-        brace_start = cleaned.find("{")
-        brace_end = cleaned.rfind("}")
-        if brace_start != -1 and brace_end > brace_start:
-            extracted = cleaned[brace_start:brace_end + 1]
-            try:
-                return json.loads(extracted)
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-        return None
+                    retry_after = float(resp.headers["retry
