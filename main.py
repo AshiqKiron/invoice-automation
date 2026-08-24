@@ -4,6 +4,7 @@
 import json
 import os
 import sys
+import time
 
 from config import INVOICE_DIR
 from services.api_client import AccountingAPIClient
@@ -63,8 +64,16 @@ def main():
 
     # --- Process each invoice ---
     results = {"success": 0, "skipped": 0, "failed": 0}
+    processed_count = 0
 
     for filename in invoice_files:
+        # Rate limit protection: wait between invoices
+        # ~3000 tokens per invoice, Groq free tier limit is 8000 TPM
+        # 8s delay keeps us safely under the limit
+        if processed_count > 0:
+            print("   ⏳ Waiting 8s to respect rate limit...")
+            time.sleep(8)
+
         filepath = os.path.join(INVOICE_DIR, filename)
         print(f"{'─' * 60}")
         print(f"📄 Processing: {filename}")
@@ -74,6 +83,7 @@ def main():
         if not raw_text.strip():
             print("   ⚠️  No text extracted. Skipping.")
             results["failed"] += 1
+            processed_count += 1
             continue
 
         # Step 2: LLM Parsing
@@ -82,6 +92,7 @@ def main():
         if not structured:
             print("   ❌ Failed to parse structured data. Skipping.")
             results["failed"] += 1
+            processed_count += 1
             continue
 
         # Step 3: Partner matching fallback
@@ -94,6 +105,7 @@ def main():
             else:
                 print(f"   ❌ Could not match partner for '{supplier_name}'. Skipping.")
                 results["failed"] += 1
+                processed_count += 1
                 continue
 
         # Step 4: Local validation & correction
@@ -116,6 +128,7 @@ def main():
         if choice != "y":
             print("   ⏭️  Skipped by user.")
             results["skipped"] += 1
+            processed_count += 1
             continue
 
         # Step 6: Register via API
@@ -124,6 +137,7 @@ def main():
         except Exception as e:
             print(f"   ❌ API request failed: {e}")
             results["failed"] += 1
+            processed_count += 1
             continue
 
         if status == 201:
@@ -145,6 +159,8 @@ def main():
         else:
             print(f"   ❌ Unexpected error {status}: {response}")
             results["failed"] += 1
+
+        processed_count += 1
 
     # --- Summary ---
     print(f"\n{'=' * 60}")
