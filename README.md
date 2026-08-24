@@ -4,21 +4,25 @@
 
 ````
 invoice-automation/
-├── README.md                  # Setup instructions
-├── SUBMISSION.md              # Your completed submission template
-├── requirements.txt           # Dependencies
-├── accounting_api.py          # The provided mock server (do not change)
-├── main.py                    # Entry point: orchestrates the pipeline
-├── config.py                  # Configuration (API keys, paths)
+├── README.md                  # Setup & demo instructions
+├── SUBMISSION.md              # Completed submission document
+├── requirements.txt           # Python dependencies
+├── run.sh                     # Single command entry point
+├── accounting_api.py          # Provided mock API (DO NOT MODIFY)
+├── main.py                    # Orchestrator with HITL review
+├── config.py                  # Environment configuration
 ├── services/
 │   ├── __init__.py
-│   ├── ocr_engine.py          # Handles PDF text layer & Image OCR (Tesseract)
-│   ├── llm_parser.py          # Uses LLM to convert raw text to JSON
-│   ├── partner_matcher.py     # Fuzzy matches supplier names to API Master
-│   └── api_client.py          # Interacts with the Accounting API
+│   ├── ocr_engine.py          # PDF text layer + Tesseract image OCR
+│   ├── llm_parser.py          # Groq/Ollama structured extraction
+│   ├── partner_matcher.py     # Fuzzy matching to supplier master
+│   └── api_client.py          # Accounting API HTTP client
 ├── utils/
 │   ├── __init__.py
-│   └── validators.py          # Local math checks before sending to API
-├── invoices/                  # Place the 12 sample files here
-└── output/                    # Logs and intermediate JSON results
+│   └── validators.py          # Local tax/amount recalculation
+├── invoices/                  # Place 12 sample invoices here
+└── demo/                      # Screenshots for submission
+    ├── cli_review.png
+    └── api_success.png
+
 ````
