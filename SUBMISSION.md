@@ -3,6 +3,7 @@
 - Name: Ashiquzzaman Kiron
 - Submission date (YYYY-MM-DD): 2026-08-25
 - Hours actually spent: 8
+- Assignment solution walkthrough - https://www.loom.com/share/3e6f6e7009be4653b1131bbbc014f21d
 - Repository / how to run it: https://github.com/ashiqkiron/invoice-automation — Click "Open in Codespaces" or run `./run.sh` locally after installing Tesseract JPN and setting GROQ_API_KEY.
 
 ## 1. Understanding the request
