@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import pymupdf
 import pytesseract
 from PIL import Image
 import io
@@ -13,7 +13,7 @@ class OCREngine:
         return self._extract_from_image_file(file_path)
 
     def _extract_from_pdf(self, file_path: str) -> str:
-        doc = fitz.open(file_path)
+        doc = pymupdf.open(file_path)
         text_parts = []
         has_text_layer = False
 
@@ -30,7 +30,6 @@ class OCREngine:
         # No text layer → scanned PDF → render pages to images and OCR
         ocr_parts = []
         for page in doc:
-            # Render page at 300 DPI for better OCR accuracy
             pix = page.get_pixmap(dpi=300)
             img_data = pix.tobytes("png")
             image = Image.open(io.BytesIO(img_data))
