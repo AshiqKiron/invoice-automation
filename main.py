@@ -68,8 +68,6 @@ def main():
 
     for filename in invoice_files:
         # Rate limit protection: wait between invoices
-        # ~3000 tokens per invoice, Groq free tier limit is 8000 TPM
-        # 8s delay keeps us safely under the limit
         if processed_count > 0:
             print("   ⏳ Waiting 8s to respect rate limit...")
             time.sleep(8)
@@ -98,15 +96,27 @@ def main():
         # Step 3: Partner matching fallback
         if not structured.get("partner_code"):
             supplier_name = structured.get("supplier_name", "")
-            code = matcher.find_partner_code(supplier_name)
+            code = matcher.find_partner_code(supplier_name, structured)
             if code:
                 structured["partner_code"] = code
-                print(f"   🔗 Fuzzy matched '{supplier_name}' → {code}")
+                print(f"   🔗 Matched partner → {code} (from '{supplier_name}')")
             else:
-                print(f"   ❌ Could not match partner for '{supplier_name}'. Skipping.")
-                results["failed"] += 1
-                processed_count += 1
-                continue
+                # Last resort: scan ALL extracted JSON text for known partner names
+                all_text = json.dumps(structured, ensure_ascii=False)
+                found = False
+                for pname, pcode in matcher.alias_map.items():
+                    if pname in all_text:
+                        structured["partner_code"] = pcode
+                        print(f"   🔗 Found partner '{pname}' in extracted data → {pcode}")
+                        found = True
+                        break
+                if not found:
+                    known = matcher.get_all_partner_names()
+                    print(f"   ❌ Could not match partner. Extracted name: '{supplier_name}'")
+                    print(f"      Known partners: {known}")
+                    results["failed"] += 1
+                    processed_count += 1
+                    continue
 
         # Step 4: Local validation & correction
         structured = validate_and_correct(structured)
