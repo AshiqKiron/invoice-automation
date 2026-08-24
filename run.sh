@@ -12,7 +12,7 @@ if ! command -v tesseract &> /dev/null; then
     exit 1
 fi
 
-if ! python3 -c "import fitz" &> /dev/null; then
+if ! python3 -c "import pymupdf" &> /dev/null; then
     echo "❌ Python dependencies not installed."
     echo "   Run: pip install -r requirements.txt"
     exit 1
@@ -54,7 +54,6 @@ for i in $(seq 1 30); do
         READY=1
         break
     fi
-    # Show progress every 5 attempts to avoid spam
     if [ $((i % 5)) -eq 0 ]; then
         echo "   Attempt $i/30: HTTP $HTTP_CODE"
     fi
