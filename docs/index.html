@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Automation Demo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 2rem; line-height: 1.6; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
+        .success { background: #dcfce7; color: #166534; }
+        .warning { background: #fef9c3; color: #854d0e; }
+        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+        th, td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
+        th { background: #f9fafb; }
+        img { max-width: 100%; border-radius: 8px; margin: 1rem 0; }
+    </style>
+</head>
+<body>
+    <h1>🧾 Invoice Automation Pipeline</h1>
+    <p>AI-powered Japanese invoice intake automation for Sample Trading Co., Ltd.</p>
+
+    <h2>Architecture</h2>
+    <pre>Invoice File → OCR (Tesseract) → LLM (Groq/Llama3) → Structured JSON
+     → Partner Matcher → Local Tax Validator → Human Review → Accounting API</pre>
+
+    <h2>Sample Extraction Results</h2>
+    <table>
+        <tr><th>File</th><th>Type</th><th>Partner</th><th>Total (¥)</th><th>Status</th></tr>
+        <tr><td>invoice_01.pdf</td><td>PDF (text)</td><td>P-1001 山田製作所</td><td>184,800</td><td><span class="badge success">✅ Registered</span></td></tr>
+        <tr><td>invoice_04.jpg</td><td>Scan</td><td>P-1001 ヤマダ製作所</td><td>52,800</td><td><span class="badge success">✅ Fuzzy Matched</span></td></tr>
+        <tr><td>invoice_09.pdf</td><td>Scanned PDF</td><td>P-1003 東京フーズ</td><td>110,000</td><td><span class="badge success">✅ OCR Fallback</span></td></tr>
+    </table>
+
+    <h2>Verification Strategy</h2>
+    <ul>
+        <li><strong>Local Math Check:</strong> Recalculates subtotal, tax (floor per code), and total before every API call</li>
+        <li><strong>Human-in-the-Loop:</strong> CLI review gate requires explicit confirmation before registration</li>
+        <li><strong>Partner Validation:</strong> Fuzzy matching against API master prevents PARTNER_NOT_FOUND errors</li>
+    </ul>
+
+    <h2>Tech Stack</h2>
+    <ul>
+        <li><strong>OCR:</strong> Tesseract (JPN) + PyMuPDF — Free, local</li>
+        <li><strong>LLM:</strong> Groq Llama 3 70B — Free tier, &lt;1s latency</li>
+        <li><strong>Validation:</strong> Deterministic Python recalculation</li>
+        <li><strong>Cost:</strong> ~$0.001/invoice | ~$1/month at 1,000 invoices</li>
+    </ul>
+
+    <h2>How to Run</h2>
+    <pre>pip install -r requirements.txt
+sudo apt-get install tesseract-ocr tesseract-ocr-jpn
+cp .env.example .env  # Add your GROQ_API_KEY
+./run.sh</pre>
+</body>
+</html>
