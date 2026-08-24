@@ -62,7 +62,7 @@ class LLMParser:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "llama3-70b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
@@ -75,7 +75,11 @@ class LLMParser:
             json=payload,
             timeout=30,
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            # Print the actual error body from Groq for debugging
+            raise Exception(
+                f"Groq API returned {resp.status_code}: {resp.text}"
+            )
         return resp.json()["choices"][0]["message"]["content"]
 
     def _call_ollama(self, user_message: str) -> str:
@@ -91,11 +95,9 @@ class LLMParser:
 
     @staticmethod
     def _parse_json(content: str) -> dict:
-        # Strip markdown fences if present
         cleaned = content.strip()
         if cleaned.startswith("```"):
             lines = cleaned.split("\n")
-            # Remove first and last lines (``` markers)
             lines = [l for l in lines if not l.strip().startswith("```")]
             cleaned = "\n".join(lines)
         return json.loads(cleaned)
