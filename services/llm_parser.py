@@ -13,7 +13,7 @@ Return ONLY raw JSON starting with { and ending with }.
 Rules:
 1. Dates must be YYYY-MM-DD.
 2. Amounts must be integers (no decimals, no commas).
-3. Match supplier name to one of the provided partners. Return the partner_code.
+3. The supplier name is usually near '御中', at the top of the invoice, or in the header. ALWAYS extract it into supplier_name AND match it to a partner_code from the provided list. If you cannot find the supplier name, look for company names, stamps, or letterhead text.
 4. Tax rate 10% → tax_code "T10", 8% → "T08". Default to "T10" if unclear.
 5. quantity and unit_price may be null, but amount is always required per line.
 6. Be concise. Use short descriptions. Minimize whitespace in JSON output.
@@ -21,6 +21,7 @@ Rules:
 Output schema:
 {
   "partner_code": "P-XXXX",
+  "supplier_name": "string",
   "invoice_number": "string",
   "issue_date": "YYYY-MM-DD",
   "due_date": "YYYY-MM-DD",
@@ -77,12 +78,12 @@ class LLMParser:
                     if result is not None:
                         return result
 
-                    # Check if response was truncated (incomplete JSON)
+                    # Check if response was truncated
                     stripped = content.strip() if content else ""
                     stripped = re.sub(r"<think>.*?</think>", "", stripped, flags=re.DOTALL).strip()
                     if stripped.startswith("{") and not stripped.endswith("}"):
                         print(f"   ⚠️  Response truncated with model {model}. Trying next model...")
-                        break  # Move to next model
+                        break
 
                     preview = content[:300] if content else "(empty)"
                     print(f"   ⚠️  Attempt {attempt}/{MAX_RETRIES}: Invalid JSON.")
@@ -99,7 +100,7 @@ class LLMParser:
                     if attempt < MAX_RETRIES:
                         time.sleep(BASE_DELAY * attempt)
                         continue
-                    break  # Move to next model
+                    break
 
         print(f"   ❌ All models and retries exhausted.")
         return None
@@ -119,7 +120,6 @@ class LLMParser:
             "max_completion_tokens": 4096,
         }
 
-        # Only add reasoning_effort for models that support it
         if "qwen3.6" in (model or GROQ_MODEL):
             payload["reasoning_effort"] = "none"
 
@@ -197,25 +197,4 @@ class LLMParser:
             return None
 
         cleaned = content.strip()
-        cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
-
-        if cleaned.startswith("```"):
-            lines = cleaned.split("\n")
-            lines = [line for line in lines if not line.strip().startswith("```")]
-            cleaned = "\n".join(lines).strip()
-
-        try:
-            return json.loads(cleaned)
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        brace_start = cleaned.find("{")
-        brace_end = cleaned.rfind("}")
-        if brace_start != -1 and brace_end > brace_start:
-            extracted = cleaned[brace_start:brace_end + 1]
-            try:
-                return json.loads(extracted)
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-        return None
+        cleaned = re.sub(r"
