@@ -16,6 +16,7 @@ Rules:
 3. Match supplier name to one of the provided partners. Return the partner_code.
 4. Tax rate 10% → tax_code "T10", 8% → "T08". Default to "T10" if unclear.
 5. quantity and unit_price may be null, but amount is always required per line.
+6. Be concise. Use short descriptions. Minimize whitespace in JSON output.
 
 Output schema:
 {
@@ -42,12 +43,17 @@ Output schema:
 
 MAX_RETRIES = 3
 BASE_DELAY = 5
+FALLBACK_MODELS = ["qwen/qwen3-32b", "llama-3.1-8b-instant"]
 
 
 class RateLimitError(Exception):
     def __init__(self, retry_after=0):
         self.retry_after = retry_after
         super().__init__(f"Rate limited. Retry after {retry_after}s")
+
+
+class TruncationError(Exception):
+    pass
 
 
 class LLMParser:
@@ -57,51 +63,66 @@ class LLMParser:
             f"OCR Text:\n{raw_text}"
         )
 
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                if LLM_PROVIDER == "ollama":
-                    content = self._call_ollama(user_message)
-                else:
-                    content = self._call_groq(user_message)
+        models_to_try = [GROQ_MODEL] + FALLBACK_MODELS if LLM_PROVIDER == "groq" else [None]
 
-                result = self._parse_json(content)
-                if result is not None:
-                    return result
+        for model in models_to_try:
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    if LLM_PROVIDER == "ollama":
+                        content = self._call_ollama(user_message)
+                    else:
+                        content = self._call_groq(user_message, model)
 
-                preview = content[:300] if content else "(empty response)"
-                print(f"   ⚠️  Attempt {attempt}/{MAX_RETRIES}: Invalid JSON.")
-                print(f"   📋 LLM returned: {preview}")
+                    result = self._parse_json(content)
+                    if result is not None:
+                        return result
 
-            except RateLimitError as e:
-                wait = e.retry_after if e.retry_after > 0 else BASE_DELAY * attempt
-                print(f"   ⏳ Rate limited. Waiting {wait:.0f}s before retry {attempt}/{MAX_RETRIES}...")
-                time.sleep(wait)
-                continue
+                    # Check if response was truncated (incomplete JSON)
+                    stripped = content.strip() if content else ""
+                    stripped = re.sub(r"<think>.*?</think>", "", stripped, flags=re.DOTALL).strip()
+                    if stripped.startswith("{") and not stripped.endswith("}"):
+                        print(f"   ⚠️  Response truncated with model {model}. Trying next model...")
+                        break  # Move to next model
 
-            except Exception as e:
-                print(f"   ❌ Attempt {attempt}/{MAX_RETRIES} failed: {e}")
-                if attempt < MAX_RETRIES:
-                    time.sleep(BASE_DELAY * attempt)
+                    preview = content[:300] if content else "(empty)"
+                    print(f"   ⚠️  Attempt {attempt}/{MAX_RETRIES}: Invalid JSON.")
+                    print(f"   📋 LLM returned: {preview}")
+
+                except RateLimitError as e:
+                    wait = e.retry_after if e.retry_after > 0 else BASE_DELAY * attempt
+                    print(f"   ⏳ Rate limited. Waiting {wait:.0f}s before retry {attempt}/{MAX_RETRIES}...")
+                    time.sleep(wait)
                     continue
-                return None
 
-        print(f"   ❌ All {MAX_RETRIES} attempts failed.")
+                except Exception as e:
+                    print(f"   ❌ Attempt {attempt}/{MAX_RETRIES} failed: {e}")
+                    if attempt < MAX_RETRIES:
+                        time.sleep(BASE_DELAY * attempt)
+                        continue
+                    break  # Move to next model
+
+        print(f"   ❌ All models and retries exhausted.")
         return None
 
-    def _call_groq(self, user_message):
+    def _call_groq(self, user_message, model=None):
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json",
         }
         payload = {
-            "model": GROQ_MODEL,
+            "model": model or GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
             ],
             "temperature": 0,
-            "reasoning_effort": "none",
+            "max_completion_tokens": 4096,
         }
+
+        # Only add reasoning_effort for models that support it
+        if "qwen3.6" in (model or GROQ_MODEL):
+            payload["reasoning_effort"] = "none"
+
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers=headers,
@@ -114,7 +135,6 @@ class LLMParser:
             raise RateLimitError(retry_after)
 
         if resp.status_code == 400 and "reasoning" in resp.text.lower():
-            print("   ⚠️  Model does not support reasoning_effort, retrying without it...")
             del payload["reasoning_effort"]
             resp = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
@@ -123,16 +143,23 @@ class LLMParser:
                 timeout=60,
             )
             if resp.status_code == 429:
-                retry_after = self._extract_retry_after(resp)
-                raise RateLimitError(retry_after)
+                raise RateLimitError(self._extract_retry_after(resp))
             if resp.status_code != 200:
-                raise Exception(f"Groq API returned {resp.status_code}: {resp.text}")
+                raise Exception(f"Groq returned {resp.status_code}: {resp.text}")
             return resp.json()["choices"][0]["message"]["content"]
 
         if resp.status_code != 200:
-            raise Exception(f"Groq API returned {resp.status_code}: {resp.text}")
+            raise Exception(f"Groq returned {resp.status_code}: {resp.text}")
 
-        return resp.json()["choices"][0]["message"]["content"]
+        data = resp.json()
+        choice = data["choices"][0]
+        finish_reason = choice.get("finish_reason", "")
+        content = choice["message"]["content"]
+
+        if finish_reason == "length":
+            raise TruncationError("Response truncated due to max_completion_tokens")
+
+        return content
 
     @staticmethod
     def _extract_retry_after(resp):
@@ -170,23 +197,18 @@ class LLMParser:
             return None
 
         cleaned = content.strip()
-
-        # Strip <think>...</think> reasoning blocks (Qwen reasoning models)
         cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
 
-        # Strip markdown code fences
         if cleaned.startswith("```"):
             lines = cleaned.split("\n")
             lines = [line for line in lines if not line.strip().startswith("```")]
             cleaned = "\n".join(lines).strip()
 
-        # Try direct parse first
         try:
             return json.loads(cleaned)
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # Try to extract JSON object from surrounding text
         brace_start = cleaned.find("{")
         brace_end = cleaned.rfind("}")
         if brace_start != -1 and brace_end > brace_start:
