@@ -5,11 +5,10 @@ echo "=========================================="
 echo "  Invoice Automation – Single Command Run"
 echo "=========================================="
 
-# Check dependencies
+# --- Pre-flight checks ---
 if ! command -v tesseract &> /dev/null; then
     echo "❌ Tesseract OCR not found."
     echo "   Install: sudo apt-get install tesseract-ocr tesseract-ocr-jpn"
-    echo "   Or:      brew install tesseract tesseract-lang"
     exit 1
 fi
 
@@ -19,31 +18,56 @@ if ! python3 -c "import fitz" &> /dev/null; then
     exit 1
 fi
 
-# Start API server in background
+if [ ! -f accounting_api.py ]; then
+    echo "❌ accounting_api.py not found in current directory."
+    exit 1
+fi
+
+# --- Kill any stale API process on port 8080 ---
+if lsof -ti:8080 &> /dev/null; then
+    echo "⚠️  Port 8080 already in use. Killing stale process..."
+    kill $(lsof -ti:8080) 2>/dev/null || true
+    sleep 1
+fi
+
+# --- Start API server in background ---
 echo ""
 echo "🔄 Starting Accounting API server..."
 python3 accounting_api.py &
 API_PID=$!
 
-# Wait for API to become ready
-echo "⏳ Waiting for API..."
+# Ensure cleanup on exit (Ctrl+C, error, or normal completion)
+cleanup() {
+    echo ""
+    echo "🛑 Stopping API server (PID $API_PID)..."
+    kill $API_PID 2>/dev/null || true
+    wait $API_PID 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# --- Wait for API to become ready (max 30 seconds) ---
+echo "⏳ Waiting for API to be ready..."
+READY=0
 for i in $(seq 1 30); do
     if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-        echo "✅ API is ready."
+        READY=1
         break
     fi
     sleep 1
 done
 
-# Run the pipeline
+if [ $READY -eq 0 ]; then
+    echo "❌ API failed to start within 30 seconds."
+    echo "   Try running manually: python3 accounting_api.py"
+    exit 1
+fi
+
+echo "✅ API is ready (PID $API_PID)."
+
+# --- Run the pipeline ---
 echo ""
 python3 main.py
 EXIT_CODE=$?
 
-# Cleanup
-echo ""
-echo "🛑 Stopping API server..."
-kill $API_PID 2>/dev/null || true
-wait $API_PID 2>/dev/null || true
-
+# Cleanup happens automatically via trap
 exit $EXIT_CODE
