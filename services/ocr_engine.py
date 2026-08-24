@@ -1,6 +1,7 @@
 import fitz  # PyMuPDF
 import pytesseract
 from PIL import Image
+import io
 
 
 class OCREngine:
@@ -9,7 +10,7 @@ class OCREngine:
     def extract_text(self, file_path: str) -> str:
         if file_path.lower().endswith(".pdf"):
             return self._extract_from_pdf(file_path)
-        return self._extract_from_image(file_path)
+        return self._extract_from_image_file(file_path)
 
     def _extract_from_pdf(self, file_path: str) -> str:
         doc = fitz.open(file_path)
@@ -22,15 +23,26 @@ class OCREngine:
                 has_text_layer = True
                 text_parts.append(page_text)
 
+        if has_text_layer:
+            doc.close()
+            return "\n".join(text_parts)
+
+        # No text layer → scanned PDF → render pages to images and OCR
+        ocr_parts = []
+        for page in doc:
+            # Render page at 300 DPI for better OCR accuracy
+            pix = page.get_pixmap(dpi=300)
+            img_data = pix.tobytes("png")
+            image = Image.open(io.BytesIO(img_data))
+            custom_config = r"--oem 3 --psm 6 -l jpn"
+            page_text = pytesseract.image_to_string(image, config=custom_config)
+            ocr_parts.append(page_text)
+
         doc.close()
+        return "\n".join(ocr_parts)
 
-        if not has_text_layer:
-            # Scanned PDF → treat as image
-            return self._extract_from_image(file_path)
-
-        return "\n".join(text_parts)
-
-    def _extract_from_image(self, file_path: str) -> str:
+    def _extract_from_image_file(self, file_path: str) -> str:
+        """OCR for JPG/PNG/image files."""
         try:
             image = Image.open(file_path)
             custom_config = r"--oem 3 --psm 6 -l jpn"
