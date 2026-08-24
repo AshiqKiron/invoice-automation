@@ -1,11 +1,14 @@
 import json
+import re
 import time
 import requests
 from config import LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL, OLLAMA_URL, OLLAMA_MODEL
 
 SYSTEM_PROMPT = """\
 You are an expert AI assistant for Japanese invoice processing.
-Extract data from the OCR text and return ONLY a valid JSON object (no markdown).
+Extract data from the OCR text and return ONLY a valid JSON object.
+Do NOT include any explanation, markdown, code fences, or extra text.
+Return ONLY raw JSON starting with { and ending with }.
 
 Rules:
 1. Dates must be YYYY-MM-DD.
@@ -38,7 +41,13 @@ Output schema:
 """
 
 MAX_RETRIES = 3
-BASE_DELAY = 5  # seconds
+BASE_DELAY = 5
+
+
+class RateLimitError(Exception):
+    def __init__(self, retry_after: float = 0):
+        self.retry_after = retry_after
+        super().__init__(f"Rate limited. Retry after {retry_after}s")
 
 
 class LLMParser:
@@ -59,8 +68,10 @@ class LLMParser:
                 if result is not None:
                     return result
 
-                # Got a response but couldn't parse JSON — retry
-                print(f"   ⚠️  Attempt {attempt}/{MAX_RETRIES}: Invalid JSON from LLM, retrying...")
+                # Debug: show what the LLM actually returned
+                preview = content[:500] if content else "(empty response)"
+                print(f"   ⚠️  Attempt {attempt}/{MAX_RETRIES}: Invalid JSON.")
+                print(f"   📋 LLM returned: {preview}")
 
             except RateLimitError as e:
                 wait = e.retry_after if e.retry_after > 0 else BASE_DELAY * attempt
@@ -98,7 +109,6 @@ class LLMParser:
             timeout=60,
         )
         if resp.status_code == 429:
-            # Parse retry-after from error message or headers
             retry_after = 0
             if "retry-after" in resp.headers:
                 try:
@@ -106,15 +116,12 @@ class LLMParser:
                 except ValueError:
                     pass
             if retry_after == 0:
-                # Try to extract from error message
                 try:
                     err = resp.json()
                     msg = err.get("error", {}).get("message", "")
-                    # Look for "try again in X.Xs"
-                    import re
                     match = re.search(r"try again in ([\d.]+)s", msg)
                     if match:
-                        retry_after = float(match.group(1)) + 1  # add 1s buffer
+                        retry_after = float(match.group(1)) + 1
                 except Exception:
                     pass
             raise RateLimitError(retry_after)
@@ -137,24 +144,31 @@ class LLMParser:
 
     @staticmethod
     def _parse_json(content: str) -> dict | None:
-        """Safely parse JSON, returning None on failure instead of raising."""
         if not content or not content.strip():
             return None
+
+        cleaned = content.strip()
+
+        # Strip markdown code fences
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            cleaned = "\n".join(lines).strip()
+
+        # Try direct parse first
         try:
-            cleaned = content.strip()
-            if cleaned.startswith("```"):
-                lines = cleaned.split("\n")
-                lines = [l for l in lines if not l.strip().startswith("```")]
-                cleaned = "\n".join(lines).strip()
-            if not cleaned:
-                return None
             return json.loads(cleaned)
         except (json.JSONDecodeError, ValueError):
-            return None
+            pass
 
+        # Try to extract JSON object from surrounding text
+        brace_start = cleaned.find("{")
+        brace_end = cleaned.rfind("}")
+        if brace_start != -1 and brace_end > brace_start:
+            extracted = cleaned[brace_start:brace_end + 1]
+            try:
+                return json.loads(extracted)
+            except (json.JSONDecodeError, ValueError):
+                pass
 
-class RateLimitError(Exception):
-    """Custom exception for rate limit responses with retry-after info."""
-    def __init__(self, retry_after: float = 0):
-        self.retry_after = retry_after
-        super().__init__(f"Rate limited. Retry after {retry_after}s")
+        return None
